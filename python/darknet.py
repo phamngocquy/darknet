@@ -1,9 +1,9 @@
 import random
 from ctypes import *
-from email.mime import image
-
 import cv2
 import numpy as np
+
+from python.entity.Helper import Helper
 
 
 def sample(probs):
@@ -211,44 +211,43 @@ def detect_img(gray):
     net = load_net(b"/home/haku/Yolo/darknet/cfg/yolov3.cfg", b"/home/haku/Yolo/darknet/yolov3.weights", 0)
     meta = load_meta(b"/home/haku/Yolo/darknet/cfg/coco.data")
     r = detect_vid(net, meta, gray)
-    print(r)
-    # count = 0
-    # for i in range(244):
-    #     print("count", count)
-    #     r = detect(net, meta, b"/home/haku/Yolo/darknet/tmp/frame%d.jpg" % count)
-    #     count += 1
-    #     print(r)
+    # print(r)
 
 
 def detect_from_video():
     net = load_net(b"/home/haku/Yolo/darknet/cfg/yolov3.cfg", b"/home/haku/Yolo/darknet/yolov3.weights", 0)
     meta = load_meta(b"/home/haku/Yolo/darknet/cfg/coco.data")
-
-    cap = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test3.mp4')
+    # cap = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test3.mp4')
+    cap = cv2.VideoCapture('rtsp://admin:admin@172.19.5.74:554/cam/realmonitor?channel=1&subtype=0&unicast=true&proto=Onvif')
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    my_person_list = None
+    tmp_person_list = None
+    print("starting")
     while cap.isOpened():
         ret, frame = cap.read()
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         r = detect_vid(net, meta, frame)
-        for i in r:
-            if i[0] == b'person':
-                width = i[2][2]
-                height = i[2][3]
-                center_x = i[2][0]
-                center_y = i[2][1]
-                bottom_left_x = center_x - (width / 2)
-                bottom_left_y = center_y - (height / 2)
+        if my_person_list is None:
+            my_person_list = Helper.get_list_person(r)
+            tmp_person_list = Helper.get_list_person(r)
+            for i in range(len(my_person_list)):
+                my_person_list[i].identifi_code = i + 1
+                tmp_person_list[i].identifi_code = i + 1
+        else:
+            my_person_list = Helper.get_list_person(r)
+            Helper.person_mapping(my_person_list, tmp_person_list)
 
-                print("center: ", center_x, " : ", center_y)
-                print("bottom_left: ", bottom_left_x, " : ", bottom_left_y)
-
-                cv2.rectangle(frame, (int(bottom_left_x), int(bottom_left_y)),
-                              (int(width + bottom_left_x), int(height + bottom_left_y)),
-                              (255, 0, 0),
-                              2)
-        print(r)
+        for person in my_person_list:
+            bottom_left_x, bottom_left_y, rcg_width, rcg_height = person.create_rectangle()
+            cv2.rectangle(frame, (int(bottom_left_x), int(bottom_left_y)), (int(rcg_width), int(rcg_height)),
+                          (255, 0, 0), 2)
+            cv2.putText(frame, str(person.identifi_code), (int(person.center_x), int(person.center_y)), font, 1,
+                        (255, 255, 255), 2,
+                        cv2.LINE_AA)
         cv2.imshow('frame', frame)
+        tmp_person_list = my_person_list
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+
     # print("success")
     cv2.destroyAllWindows()
     cap.release()

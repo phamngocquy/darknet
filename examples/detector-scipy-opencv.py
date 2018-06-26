@@ -3,8 +3,8 @@
 # OK actually that might not be a great idea, idk, work in progress
 # Use at your own risk. or don't, i don't care
 
-from scipy.misc import imread
 import cv2
+from imageio import imread
 
 
 def array_to_image(arr):
@@ -39,21 +39,22 @@ sys.path.append(os.path.join(os.getcwd(), 'python/'))
 
 import darknet as dn
 
-# Darknet
-net = dn.load_net("cfg/tiny-yolo.cfg", "tiny-yolo.weights", 0)
-meta = dn.load_meta("cfg/coco.data")
-r = dn.detect(net, meta, "data/dog.jpg")
-print(r)
+if __name__ == '__main__':
+    # Darknet
+    net = dn.load_net("/home/haku/Yolo/darknet/cfg/yolov3.cfg", "/home/haku/Yolo/darknet/yolov3.weights", 0)
+    meta = dn.load_meta("/home/haku/Yolo/darknet/cfg/coco.data")
+    r = dn.detect(net, meta, "/home/haku/Yolo/darknet/data/dog.jpg")
+    print(r)
 
-# scipy
-arr = imread('data/dog.jpg')
-im = array_to_image(arr)
-r = detect2(net, meta, im)
-print(r)
+    # scipy
+    arr = imread('data/dog.jpg')
+    im = array_to_image(arr)
+    r = detect2(net, meta, im)
+    print(r)
 
-# OpenCV
-arr = cv2.imread('data/dog.jpg')
-im = array_to_image(arr)
-dn.rgbgr_image(im)
-r = detect2(net, meta, im)
-print(r)
+    # OpenCV
+    arr = cv2.imread('data/dog.jpg')
+    im = array_to_image(arr)
+    dn.rgbgr_image(im)
+    r = detect2(net, meta, im)
+    print(r)
