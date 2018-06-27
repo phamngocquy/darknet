@@ -1,7 +1,10 @@
+import os
 import random
 from ctypes import *
 import cv2
 import numpy as np
+import glob
+import dlib
 
 from python.entity.Helper import Helper
 
@@ -141,7 +144,8 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     predict_image(net, im)
     dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
     num = pnum[0]
-    if (nms): do_nms_obj(dets, num, meta.classes, nms)
+    if nms:
+        do_nms_obj(dets, num, meta.classes, nms)
 
     res = []
     for j in range(num):
@@ -217,15 +221,18 @@ def detect_img(gray):
 def detect_from_video():
     net = load_net(b"/home/haku/Yolo/darknet/cfg/yolov3.cfg", b"/home/haku/Yolo/darknet/yolov3.weights", 0)
     meta = load_meta(b"/home/haku/Yolo/darknet/cfg/coco.data")
-    # cap = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test3.mp4')
-    cap = cv2.VideoCapture('rtsp://admin:admin@172.19.5.74:554/cam/realmonitor?channel=1&subtype=0&unicast=true&proto=Onvif')
+    cap = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test3.mp4')
+    # cap = cv2.VideoCapture('rtsp://admin:admin@172.19.5.74:554/cam/realmonitor?channel=1&subtype=0&unicast=true
+    # &proto=Onvif')
     font = cv2.FONT_HERSHEY_SIMPLEX
     my_person_list = None
     tmp_person_list = None
     print("starting")
+    count = 0
     while cap.isOpened():
         ret, frame = cap.read()
         r = detect_vid(net, meta, frame)
+        cv2.imwrite('/home/haku/Yolo/darknet/tmp/frame%d.jpg' % count, frame)
         if my_person_list is None:
             my_person_list = Helper.get_list_person(r)
             tmp_person_list = Helper.get_list_person(r)
@@ -238,20 +245,134 @@ def detect_from_video():
 
         for person in my_person_list:
             bottom_left_x, bottom_left_y, rcg_width, rcg_height = person.create_rectangle()
+            print(bottom_left_x, bottom_left_y, rcg_width, rcg_height)
             cv2.rectangle(frame, (int(bottom_left_x), int(bottom_left_y)), (int(rcg_width), int(rcg_height)),
                           (255, 0, 0), 2)
             cv2.putText(frame, str(person.identifi_code), (int(person.center_x), int(person.center_y)), font, 1,
                         (255, 255, 255), 2,
                         cv2.LINE_AA)
+
         cv2.imshow('frame', frame)
         tmp_person_list = my_person_list
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-
+        count += 1
     # print("success")
     cv2.destroyAllWindows()
     cap.release()
 
 
+def tracker_obj():
+    net = load_net(b"/home/haku/Yolo/darknet/cfg/yolov3.cfg", b"/home/haku/Yolo/darknet/yolov3.weights", 0)
+    meta = load_meta(b"/home/haku/Yolo/darknet/cfg/coco.data")
+    cap = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test3.mp4')
+    tracker = dlib.correlation_tracker()
+    win = dlib.image_window()
+    print("starting")
+    count = 0
+    while cap.isOpened():
+        ret, frame = cap.read()
+        r = detect_vid(net, meta, frame)
+        my_person_list = Helper.get_list_person(r)
+        if count == 0:
+            bottom_left_x, bottom_left_y, rcg_width, rcg_height = my_person_list[1].create_rectangle()
+            print(bottom_left_x, bottom_left_y, rcg_width, rcg_height)
+            tracker.start_track(frame, dlib.rectangle(int(bottom_left_x), int(bottom_left_y), int(rcg_width),
+                                                      int(rcg_height)))
+        else:
+            tracker.update(frame)
+            count += 1
+
+        win.clear_overlay()
+        win.set_image(frame)
+        win.add_overlay(tracker.get_position())
+    # print("success")
+    cv2.destroyAllWindows()
+    cap.release()
+
+
+def tracker_obj_2():
+    net = load_net(b"/home/haku/Yolo/darknet/cfg/yolov3.cfg", b"/home/haku/Yolo/darknet/yolov3.weights", 0)
+    meta = load_meta(b"/home/haku/Yolo/darknet/cfg/coco.data")
+    cap = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test4.mp4')
+
+    cv2.namedWindow("tracking")
+
+    print('Select 3 tracking targets')
+
+    cv2.namedWindow("tracking")
+    camera = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test3.mp4')
+    tracker = cv2.MultiTracker_create()
+    init_once = False
+
+    ok, image = camera.read()
+    if not ok:
+        print('Failed to read video')
+        exit()
+
+    bbox1 = cv2.selectROI('tracking', image)
+    bbox2 = cv2.selectROI('tracking', image)
+    bbox3 = cv2.selectROI('tracking', image)
+
+    print(bbox1)
+
+    while camera.isOpened():
+        ok, image = camera.read()
+        if not ok:
+            print
+            'no image to read'
+            break
+
+        if not init_once:
+            ok = tracker.add(cv2.TrackerKCF_create(), image, (10, 10, 10, 10))
+            ok = tracker.add(cv2.TrackerKCF_create(), image, bbox2)
+            ok = tracker.add(cv2.TrackerKCF_create(), image, bbox3)
+            init_once = True
+
+        ok, boxes = tracker.update(image)
+
+        for newbox in boxes:
+            p1 = (int(newbox[0]), int(newbox[1]))
+            p2 = (int(newbox[0] + newbox[2]), int(newbox[1] + newbox[3]))
+            cv2.rectangle(image, p1, p2, (200, 0, 0))
+
+        cv2.imshow('tracking', image)
+        cv2.waitKey(1)
+
+
+def tracker_obj_3():
+    net = load_net(b"/home/haku/Yolo/darknet/cfg/yolov3.cfg", b"/home/haku/Yolo/darknet/yolov3.weights", 0)
+    meta = load_meta(b"/home/haku/Yolo/darknet/cfg/coco.data")
+    camera = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test3.mp4')
+
+    cv2.namedWindow("tracking")
+    tracker = cv2.MultiTracker_create()
+    init_once = False
+
+    while camera.isOpened():
+        ok, image = camera.read()
+        r = detect_vid(net, meta, image)
+        my_person_list = Helper.get_list_person(r)
+
+        if not init_once:
+            for p in my_person_list:
+                bottom_left_x, bottom_left_y, rcg_width, rcg_height = p.create_rectangle()
+                tracker.add(cv2.TrackerMedianFlow_create(), image,
+                            (bottom_left_x, bottom_left_y, rcg_width - bottom_left_x, rcg_height - bottom_left_y))
+
+            init_once = True
+
+        ok, boxes = tracker.update(image)
+
+        for newbox in boxes:
+            p1 = (int(newbox[0]), int(newbox[1]))
+            p2 = (int(newbox[0] + newbox[2]), int(newbox[1] + newbox[3]))
+            cv2.rectangle(image, p1, p2, (200, 0, 0))
+
+        cv2.imshow('tracking', image)
+        cv2.waitKey(1)
+
+
 if __name__ == "__main__":
     detect_from_video()
+    # tracker_obj_3()

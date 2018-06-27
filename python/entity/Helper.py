@@ -3,7 +3,6 @@ import math
 
 
 class Helper(object):
-
     @staticmethod
     def get_list_person(person_list_location):
         person_list = []
@@ -27,11 +26,11 @@ class Helper(object):
             for i in range(len(person_list)):
                 distance = math.sqrt(math.pow(person.center_x - person_list[i].center_x, 2) + math.pow(
                     person.center_y - person_list[i].center_y, 2))
-                print("tmp: ", distance)
+                # print("tmp: ", distance)
                 if (min_distance is None or min_distance > distance) and (distance < 20):
                     min_distance = distance
                     person_result = person_list[i]
-            print("result: ", min_distance)
+            # print("result: ", min_distance)
             print("//====================//")
         return person_result
 
