@@ -7,6 +7,7 @@ import glob
 import dlib
 
 from python.entity.Helper import Helper
+from python.data_association import associate_detection_to_tracker
 
 
 def sample(probs):
@@ -245,7 +246,6 @@ def detect_from_video():
 
         for person in my_person_list:
             bottom_left_x, bottom_left_y, rcg_width, rcg_height = person.create_rectangle()
-            print(bottom_left_x, bottom_left_y, rcg_width, rcg_height)
             cv2.rectangle(frame, (int(bottom_left_x), int(bottom_left_y)), (int(rcg_width), int(rcg_height)),
                           (255, 0, 0), 2)
             cv2.putText(frame, str(person.identifi_code), (int(person.center_x), int(person.center_y)), font, 1,
@@ -257,9 +257,80 @@ def detect_from_video():
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
         count += 1
-    # print("success")
+
     cv2.destroyAllWindows()
     cap.release()
+
+
+def detect_from_video_sort():
+    net = load_net(b"/home/haku/Yolo/darknet/cfg/yolov3.cfg", b"/home/haku/Yolo/darknet/yolov3.weights", 0)
+    meta = load_meta(b"/home/haku/Yolo/darknet/cfg/coco.data")
+    cap = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test4.mp4')
+    # cap = cv2.VideoCapture('rtsp://admin:admin@172.19.5.74:554/cam/realmonitor?channel=1&subtype=0&unicast=true
+    # &proto=Onvif')
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    my_person_list = None
+    tmp_person_list = None
+    print("starting")
+    count = 0
+    while cap.isOpened():
+        ret, frame = cap.read()
+        r = detect_vid(net, meta, frame)
+        cv2.imwrite('/home/haku/Yolo/darknet/tmp/frame%d.jpg' % count, frame)
+        if my_person_list is None:
+            print("is None")
+            my_person_list = Helper.get_list_person(r)
+            tmp_person_list = Helper.get_list_person(r)
+            for i in range(len(my_person_list)):
+                my_person_list[i].identifi_code = i + 1
+                tmp_person_list[i].identifi_code = i + 1
+        else:
+            my_person_list = Helper.get_list_person(r)
+            # Helper.person_mapping(my_person_list, tmp_person_list)
+            mapping_data(my_person_list, tmp_person_list)
+
+        for person in my_person_list:
+            bottom_left_x, bottom_left_y, rcg_width, rcg_height = person.create_rectangle()
+            # print(bottom_left_x, bottom_left_y, rcg_width, rcg_height)
+            cv2.rectangle(frame, (int(bottom_left_x), int(bottom_left_y)), (int(rcg_width), int(rcg_height)),
+                          (255, 0, 0), 2)
+            cv2.putText(frame, str(person.identifi_code), (int(person.center_x), int(person.center_y)), font, 1,
+                        (255, 255, 255), 2,
+                        cv2.LINE_AA)
+
+        cv2.imshow('frame', frame)
+        tmp_person_list = my_person_list
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+        count += 1
+
+    cv2.destroyAllWindows()
+    cap.release()
+
+
+def mapping_data(my_person_list, tmp_person_list):
+    print("len_my_person_list: ", len(my_person_list))
+    det = []
+    trk = []
+    for person in my_person_list:
+        bottom_left_x, bottom_left_y, rcg_width, rcg_height = person.create_rectangle()
+        det.append([bottom_left_x, bottom_left_y, rcg_width, rcg_height])
+
+    for person in tmp_person_list:
+        bottom_left_x, bottom_left_y, rcg_width, rcg_height = person.create_rectangle()
+        trk.append([bottom_left_x, bottom_left_y, rcg_width, rcg_height])
+
+    # print("Det: ",det)
+    matched, unmatched_dets, unmatched_trks = associate_detection_to_tracker(det, trk, 0.3)
+    # print("matched: ", matched)
+    # print("unmatched_dets: ", unmatched_dets)
+    # print("unmatched_trks: ", unmatched_trks)
+
+    for m in matched:
+        if tmp_person_list[m[1]].identifi_code is not None:
+            my_person_list[m[0]].identifi_code = tmp_person_list[m[1]].identifi_code
+        else:
+            my_person_list[m[0]].identifi_code = len(my_person_list)
 
 
 def tracker_obj():
@@ -374,5 +445,5 @@ def tracker_obj_3():
 
 
 if __name__ == "__main__":
-    detect_from_video()
+    detect_from_video_sort()
     # tracker_obj_3()

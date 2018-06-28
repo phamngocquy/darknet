@@ -31,7 +31,7 @@ class Helper(object):
                     min_distance = distance
                     person_result = person_list[i]
             # print("result: ", min_distance)
-            print("//====================//")
+            # print("//====================//")
         return person_result
 
     # my_person_list: current person list
