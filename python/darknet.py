@@ -248,7 +248,7 @@ def detect_from_video():
             bottom_left_x, bottom_left_y, rcg_width, rcg_height = person.create_rectangle()
             cv2.rectangle(frame, (int(bottom_left_x), int(bottom_left_y)), (int(rcg_width), int(rcg_height)),
                           (255, 0, 0), 2)
-            cv2.putText(frame, str(person.identifi_code), (int(person.center_x), int(person.center_y)), font, 1,
+            cv2.putText(frame, str(person.identifi_code), (int(bottom_left_x), int(bottom_left_y)), font, 1,
                         (255, 255, 255), 2,
                         cv2.LINE_AA)
 
@@ -265,7 +265,7 @@ def detect_from_video():
 def detect_from_video_sort():
     net = load_net(b"/home/haku/Yolo/darknet/cfg/yolov3.cfg", b"/home/haku/Yolo/darknet/yolov3.weights", 0)
     meta = load_meta(b"/home/haku/Yolo/darknet/cfg/coco.data")
-    cap = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test4.mp4')
+    cap = cv2.VideoCapture('/home/haku/Yolo/darknet/data/test3.mp4')
     # cap = cv2.VideoCapture('rtsp://admin:admin@172.19.5.74:554/cam/realmonitor?channel=1&subtype=0&unicast=true
     # &proto=Onvif')
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -276,7 +276,7 @@ def detect_from_video_sort():
     while cap.isOpened():
         ret, frame = cap.read()
         r = detect_vid(net, meta, frame)
-        cv2.imwrite('/home/haku/Yolo/darknet/tmp/frame%d.jpg' % count, frame)
+        # cv2.imwrite('/home/haku/Yolo/darknet/tmp/frame%d.jpg' % count, frame)
         if my_person_list is None:
             print("is None")
             my_person_list = Helper.get_list_person(r)
@@ -294,8 +294,8 @@ def detect_from_video_sort():
             # print(bottom_left_x, bottom_left_y, rcg_width, rcg_height)
             cv2.rectangle(frame, (int(bottom_left_x), int(bottom_left_y)), (int(rcg_width), int(rcg_height)),
                           (255, 0, 0), 2)
-            cv2.putText(frame, str(person.identifi_code), (int(person.center_x), int(person.center_y)), font, 1,
-                        (255, 255, 255), 2,
+            cv2.putText(frame, str(person.identifi_code), (int(bottom_left_x), int(bottom_left_y)), font, 1,
+                        (0, 255, 0), 2,
                         cv2.LINE_AA)
 
         cv2.imshow('frame', frame)
@@ -326,11 +326,22 @@ def mapping_data(my_person_list, tmp_person_list):
     # print("unmatched_dets: ", unmatched_dets)
     # print("unmatched_trks: ", unmatched_trks)
 
+    tmp_arr = []
+    for p in tmp_person_list:
+        tmp_arr.append(p.identifi_code)
+
     for m in matched:
         if tmp_person_list[m[1]].identifi_code is not None:
             my_person_list[m[0]].identifi_code = tmp_person_list[m[1]].identifi_code
         else:
-            my_person_list[m[0]].identifi_code = len(my_person_list)
+            if tmp_person_list[m[0]].identifi_code is None:
+                for i in range(len(tmp_person_list)):
+                    if i not in tmp_arr:
+                        my_person_list[m[0]].identifi_code = i
+                        tmp_arr.append(i)
+                        break
+                if my_person_list[m[0]].identifi_code is None:
+                    my_person_list[m[0]].identifi_code = len(my_person_list)
 
 
 def tracker_obj():
